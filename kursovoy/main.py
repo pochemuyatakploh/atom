@@ -1,3 +1,6 @@
+import subprocess
+import traceback
+
 from kivymd.app import MDApp
 from kivymd.uix.button import MDIconButton
 from kivymd.uix.boxlayout import BoxLayout
@@ -55,11 +58,12 @@ class Container(BoxLayout):
 
 
     def devices(self):
-        devicee = bluetooth.discover_devices(lookup_names=True)
+        self.devicee = bluetooth.discover_devices(lookup_names=True)
         with mutex:
             self.lay = StackLayout()
-            for device in devicee:
+            for device in self.devicee:
                 line = OneLineListItem(text=str(device[1]))
+                line.bind(on_release = self.wannaconnect)
                 self.lay.add_widget(line)
             self.add_widget(self.lay, index=1)
 
@@ -70,8 +74,40 @@ class Container(BoxLayout):
     def _on_release(self, button):
         self.stop_movement()
 
-class mainapp(MDApp):
+    def wannaconnect(self, button):
+        self.commit(button)
 
+    def commit(self,button):
+        global adr
+        try:
+            k = 0
+
+            print(self.devicee)
+            for a in self.devicee:
+                if self.devicee[k][1] == button.text:
+                    adr =self.devicee[k][0]
+                    print(adr)
+                    break
+                else:
+                    k += 1
+            port = 1
+            passkey = '1234'
+            # kill any "bluetooth-agent" process that is already running
+            subprocess.call("kill -9 `pidof bluetooth-agent`", shell=True)
+            # Start a new "bluetooth-agent" process where XXXX is the passkey
+            status = subprocess.call("bluetooth-agent " + passkey + " &", shell=True)
+            # Now, connect in the same way as always with PyBlueZ
+            try:
+                s = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+                s.connect((adr, port))
+            except bluetooth.btcommon.BluetoothError as err:
+                traceback.print_exc()
+                pass
+        except:
+            traceback.print_exc()
+
+
+class mainapp(MDApp):
     def build(self):
         c = Container()
         return c
